@@ -19,5 +19,12 @@
     "description": "bag",
     "date": "2025-11-29",
     "id": 6
+  },
+  {
+    "amount": 1000.0,
+    "category": "Other",
+    "description": "bundles",
+    "date": "2025-11-30",
+    "id": 7
   }
 ]
