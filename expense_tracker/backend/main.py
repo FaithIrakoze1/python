@@ -1,25 +1,29 @@
 from fastapi import FastAPI
-from database import init_db
-from routes import router
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from pathlib import Path
+
+from routes import router  # 👈 IMPORTANT (your API routes)
 from database import Base, engine
 
+app = FastAPI(title="Expense Tracker")
+
+# Create tables
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Expense Tracker API")
+# -------- FRONTEND SETUP --------
+BASE_DIR = Path(__file__).resolve().parent.parent
+FRONTEND_DIR = BASE_DIR / "frontend"
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+app.mount(
+    "/static",
+    StaticFiles(directory=FRONTEND_DIR / "static"),
+    name="static"
 )
 
 @app.get("/")
-def read_root():
-    return {"message": "Welcome to Expense Tracker API!"}
+def serve_frontend():
+    return FileResponse(FRONTEND_DIR / "index.html")
 
-init_db()
-
+# -------- API SETUP --------
 app.include_router(router, prefix="/api")

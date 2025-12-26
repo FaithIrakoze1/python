@@ -23,7 +23,7 @@ def get_categories(db: Session = Depends(get_db)):
 # EXPENSE ROUTES
 # ============================================
 
-@router.post("/api/expenses", response_model=schemas.Expense)
+@router.post("/expenses", response_model=schemas.Expense)
 def create_expense(expense: schemas.ExpenseCreate, db: Session = Depends(get_db)):
     try:
         return crud.create_expense(db, expense)
@@ -31,12 +31,12 @@ def create_expense(expense: schemas.ExpenseCreate, db: Session = Depends(get_db)
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
-@router.get("/api/expenses", response_model=list[schemas.Expense])
+@router.get("/expenses", response_model=list[schemas.Expense])
 def get_expenses(db: Session = Depends(get_db)):
     return crud.get_expenses(db)
 
 
-@router.get("/api/expenses/{expense_id}", response_model=schemas.Expense)
+@router.get("/expenses/{expense_id}", response_model=schemas.Expense)
 def get_expense(expense_id: int, db: Session = Depends(get_db)):
     expense = crud.get_expense(db, expense_id)
     if not expense:
@@ -48,7 +48,7 @@ def get_expense(expense_id: int, db: Session = Depends(get_db)):
 # BUDGET ROUTES
 # ============================================
 
-@router.post("/api/budgets", response_model=schemas.BudgetOut)
+@router.post("/budgets", response_model=schemas.BudgetOut)
 def create_budget(budget: schemas.BudgetCreate, db: Session = Depends(get_db)):
     try:
         return crud.create_budget(db, budget)
@@ -56,7 +56,7 @@ def create_budget(budget: schemas.BudgetCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
-@router.get("/api/budgets", response_model=list[schemas.BudgetOut])
+@router.get("/budgets", response_model=list[schemas.BudgetOut])
 def get_budgets(db: Session = Depends(get_db)):
     return crud.get_budgets(db)
 
@@ -65,16 +65,16 @@ def get_budgets(db: Session = Depends(get_db)):
 # SUMMARY ROUTES
 # ============================================
 
-@router.get("/api/summary/monthly")
+@router.get("/summary/monthly")
 def monthly_summary(year: int, month: int, db: Session = Depends(get_db)):
     return crud.get_monthly_summary(db, year, month)
 
 
-@router.get("/api/summary/yearly")
+@router.get("/summary/yearly")
 def yearly_summary(year: int, db: Session = Depends(get_db)):
     return crud.get_yearly_summary(db, year)
 
 
-@router.get("/api/summary/weekly")
+@router.get("/summary/weekly")
 def weekly_summary(year: int, week: int, db: Session = Depends(get_db)):
     return crud.get_weekly_summary(db, year, week)
