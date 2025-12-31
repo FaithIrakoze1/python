@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from datetime import date
 from database import get_db
 import crud as crud, schemas
 
@@ -31,9 +32,19 @@ def create_expense(expense: schemas.ExpenseCreate, db: Session = Depends(get_db)
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
-@router.get("/expenses", response_model=list[schemas.Expense])
-def get_expenses(db: Session = Depends(get_db)):
-    return crud.get_expenses(db)
+@router.get("/expenses")
+def get_expenses(
+    category: str | None = Query(None),
+    start_date: date | None = Query(None),
+    end_date: date | None = Query(None),
+    db: Session = Depends(get_db)
+):
+    return crud.get_expenses(
+        db,
+        category=category,
+        start_date=start_date,
+        end_date=end_date
+    )
 
 
 @router.get("/expenses/{expense_id}", response_model=schemas.Expense)

@@ -76,13 +76,13 @@
 
         <div style="flex:1"></div>
 
-        <label for="period" style="font-weight:600;">Period:</label>
-        <select id="period" onchange="loadExpenses()">
-          <option value="all">All time</option>
-          <option value="this_week">This week</option>
-          <option value="this_month" selected>This month</option>
-          <option value="this_year">This year</option>
-        </select>
+        <label>From:</label>
+        <input type="date" id="startDate" />
+
+        <label>To:</label>
+        <input type="date" id="endDate" />
+
+        <button id="applyFilters">Apply</button>
       </div>
 
       <table class="expenses-table">

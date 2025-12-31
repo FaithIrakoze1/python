@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import models
 import schemas
 
@@ -74,8 +74,30 @@ def create_expense(db: Session, expense: schemas.ExpenseCreate):
     return new_expense
 
 
-def get_expenses(db: Session):
-    return db.query(models.Expenses).all()
+def get_expenses(
+    db: Session,
+    category: str | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
+):
+    query = db.query(models.Expenses)
+
+    # Filter by categroy name
+    if category:
+        query = query.join(models.Categories).filter(
+            models.Categories.name == category
+        )
+
+    # Filter by date range
+    if start_date:
+        start_dt = datetime.combine(start_date, datetime.min.time())
+        query = query.filter(models.Expenses.created_at >= start_dt)
+
+    if end_date:
+        end_dt = datetime.combine(end_date, datetime.max.time())
+        query = query.filter(models.Expenses.created_at <= end_dt)
+
+    return query.order_by(models.Expenses.created_at.desc()).all()
 
 
 def get_expense(db: Session, expense_id: int):

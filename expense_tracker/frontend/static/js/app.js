@@ -4,17 +4,30 @@
     // UI elements
     const categorySelect = document.getElementById('category');
     const filterCategory = document.getElementById('filterCategory');
-    const periodSelect = document.getElementById('period');
     const expensesListEl = document.getElementById('expensesList');
 
     document.getElementById('date').valueAsDate = new Date();
 
+
     document.addEventListener('DOMContentLoaded', () => {
-      loadCategories().then(() => {
-        loadExpenses();
-        loadSummary();
+      const today = new Date();
+      const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+    document.getElementById('startDate').valueAsDate = firstDayOfMonth;
+    document.getElementById('endDate').valueAsDate = today;
+
+    const applyBtn = document.getElementById('applyFilters');
+    if (applyBtn) {
+      applyBtn.addEventListener('click', () => {
+        loadExpenses(true);   // backend-filtered request
       });
+    }
+
+    loadCategories().then(() => {
+      loadExpenses();
+      loadSummary();
     });
+  });
 
     // Load categories from backend and populate selects
     async function loadCategories() {
@@ -94,54 +107,31 @@
     });
 
     // Load expenses from API and render table (with filtering & period)
-    async function loadExpenses() {
+    async function loadExpenses(useBackendFilters = false) {
       try {
-        const res = await fetch(`${API_URL}/expenses`);
-        if (!res.ok) throw new Error('Failed to load expenses');
-        let expenses = await res.json();
+        let url = `${API_URL}/expenses`;
 
-        // Normalize category info:
-        // Some APIs return { category_id } only, others include nested category { name }.
-        // Ensure each expense has: expense_id, amount, description, created_at, categoryName
-        expenses = expenses.map(exp => {
-          const categoryName = exp.category?.name ?? exp.category_name ?? exp.category ?? null;
-          const createdAt = exp.created_at ?? exp.date ?? exp.createdAt ?? null;
-          return {
-            ...exp,
-            categoryName,
-            created_at: createdAt,
-          };
-        });
+        if (useBackendFilters) {
+          const params = new URLSearchParams();
 
-        // Apply filter by category
-        const categoryFilter = filterCategory.value;
-        if (categoryFilter) {
-          expenses = expenses.filter(e => e.categoryName === categoryFilter);
+          const category = filterCategory.value;
+          const startDate = document.getElementById('startDate').value;
+          const endDate = document.getElementById('endDate').value;
+
+          if (category) params.append('category', category);
+          if (startDate) params.append('start_date', startDate);
+          if (endDate) params.append('end_date', endDate);
+
+          url += `?${params.toString()}`;
         }
 
-        // Apply period filtering
-        const period = periodSelect.value;
-        const now = new Date();
-        expenses = expenses.filter(e => {
-          if (!e.created_at) return true; // if no date, keep it
-          const d = new Date(e.created_at);
-          if (period === 'this_month') {
-            return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-          } else if (period === 'this_year') {
-            return d.getFullYear() === now.getFullYear();
-          } else if (period === 'this_week') {
-            const oneJan = new Date(now.getFullYear(),0,1);
-            const nowWeek = Math.ceil((((now - oneJan) / 86400000) + oneJan.getDay()+1)/7);
-            const dWeek = Math.ceil((((d - oneJan) / 86400000) + oneJan.getDay()+1)/7);
-            return now.getFullYear() === d.getFullYear() && nowWeek === dWeek;
-          }
-          return true;
-        });
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Failed to load expenses');
 
+        const expenses = await res.json();
         renderExpenses(expenses);
       } catch (err) {
-        console.error('Error loading expenses:', err);
-        expensesListEl.innerHTML = '<tr><td colspan="5">Error loading expenses</td></tr>';
+        console.error(err);
       }
     }
 
@@ -161,27 +151,26 @@
       expenses.forEach(exp => {
         const tr = document.createElement('tr');
 
-        const dateText = exp.created_at ? new Date(exp.created_at).toLocaleDateString() : '-';
-        const desc = exp.description ?? '';
-        const amount = Number(exp.amount ?? 0);
+        const dateText = exp.created_at
+          ? new Date(exp.created_at).toLocaleDateString()
+          : '-';
 
-        const catName = exp.categoryName ?? (() => {
-          // try category_id lookup: we'll simply show category_id if no name
-          return exp.category_id ? `#${exp.category_id}` : 'Uncategorized';
-        })();
+        const amount = Number(exp.amount || 0);
 
         tr.innerHTML = `
           <td>${dateText}</td>
-          <td>${escapeHtml(desc)}</td>
-          <td><span class="category-badge category-${escapeCssClass(catName)}">${escapeHtml(catName)}</span></td>
+          <td>${escapeHtml(exp.description || '')}</td>
+          <td>#${exp.category_id}</td>
           <td class="right">${amount.toLocaleString()} RWF</td>
           <td>
             <button class="btn btn-edit" onclick="window.editExpense(${exp.expense_id})">Edit</button>
             <button class="btn btn-danger" onclick="window.deleteExpense(${exp.expense_id})">Delete</button>
           </td>
         `;
+
         expensesListEl.appendChild(tr);
       });
+
 
       // update counts + totals
       const totalCount = expenses.length;

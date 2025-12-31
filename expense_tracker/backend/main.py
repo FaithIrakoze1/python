@@ -3,7 +3,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pathlib import Path
 
-from routes import router  # 👈 IMPORTANT (your API routes)
+from routes import router  
 from database import Base, engine
 
 app = FastAPI(title="Expense Tracker")

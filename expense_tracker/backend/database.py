@@ -2,9 +2,13 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from dotenv import load_dotenv
+from pathlib import Path
 import os
 
-load_dotenv()
+BASE_DIR = Path(__file__).resolve().parent.parent
+ENV_PATH = BASE_DIR / "env" / ".env"
+
+load_dotenv(dotenv_path=ENV_PATH)
 
 db_url = os.getenv("DATABASE_URL")
 if db_url is None:
@@ -12,7 +16,6 @@ if db_url is None:
 
 engine = create_engine(db_url)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
 Base = declarative_base()
 
 def init_db():
