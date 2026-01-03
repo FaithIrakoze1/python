@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from datetime import date
 from database import get_db
+from pydantic import BaseModel
 import crud as crud, schemas
 
 router = APIRouter()
@@ -72,20 +73,3 @@ def get_budgets(db: Session = Depends(get_db)):
     return crud.get_budgets(db)
 
 
-# ============================================
-# SUMMARY ROUTES
-# ============================================
-
-@router.get("/summary/monthly")
-def monthly_summary(year: int, month: int, db: Session = Depends(get_db)):
-    return crud.get_monthly_summary(db, year, month)
-
-
-@router.get("/summary/yearly")
-def yearly_summary(year: int, db: Session = Depends(get_db)):
-    return crud.get_yearly_summary(db, year)
-
-
-@router.get("/summary/weekly")
-def weekly_summary(year: int, week: int, db: Session = Depends(get_db)):
-    return crud.get_weekly_summary(db, year, week)
