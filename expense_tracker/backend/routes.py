@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from datetime import date
 from database import get_db
+from services.sms_parser import parse_momo_sms
 from pydantic import BaseModel
 import crud as crud, schemas
 
@@ -72,4 +73,14 @@ def create_budget(budget: schemas.BudgetCreate, db: Session = Depends(get_db)):
 def get_budgets(db: Session = Depends(get_db)):
     return crud.get_budgets(db)
 
+# ============================================
+# SMS ROUTE
+# ============================================
+
+class SMSPayload(BaseModel):
+    message: str
+
+@router.post("/sms/incoming")
+def receive_sms(payload: SMSPayload, db: Session = Depends(get_db)):
+    return parse_momo_sms(payload.message, db)
 

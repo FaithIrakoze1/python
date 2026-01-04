@@ -149,7 +149,10 @@
       }
 
       expenses.forEach(exp => {
+        const isMomo = exp.description?.toLowerCase().includes('momo');
         const tr = document.createElement('tr');
+        if (isMomo) tr.classList.add('momo-expense');
+
 
         const dateText = exp.created_at
           ? new Date(exp.created_at).toLocaleDateString()
@@ -319,3 +322,26 @@
     }
 
   })();
+
+  // Auto-refresh expenses every 5 seconds (MoMo live sync)
+  let lastExpenseCount = 0;
+
+  setInterval(async () => {
+    try {
+      const res = await fetch(`${API_URL}/expenses`);
+      if (!res.ok) return;
+
+      const expenses = await res.json();
+
+      if (expenses.length > lastExpenseCount) {
+        document.getElementById('syncStatus').textContent =
+          'New MoMo transaction received';
+        lastExpenseCount = expenses.length;
+
+        renderExpenses(normalizeExpenses(expenses));
+        loadSummary();
+      }
+    } catch (e) {
+      console.error('MoMo sync error', e);
+    }
+  }, 5000);
