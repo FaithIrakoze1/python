@@ -57,6 +57,15 @@ def get_expense(expense_id: int, db: Session = Depends(get_db)):
     return expense
 
 
+@router.delete("/expenses/{expense_id}")
+def delete_expense(expense_id: int, db: Session = Depends(get_db)):
+    success = crud.delete_expense(db, expense_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Expense not found")
+
+    return {"deleted": True, "expense_id": expense_id}
+
+
 # ============================================
 # BUDGET ROUTES
 # ============================================

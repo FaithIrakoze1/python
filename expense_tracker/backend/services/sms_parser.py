@@ -3,43 +3,53 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 from schemas import ExpenseCreate
 from crud import create_expense
-from models import Expenses
 
-PATTERN = re.compile(
-    r"TxId:(\d+).*?payment of (\d+)\s*RWF to (.+?) was completed at ([\d\-: ]+)",
-    re.IGNORECASE
-)
+PATTERNS = [
+    # FORMAT A: Merchant payment
+    re.compile(
+        r"TxId:(?P<txid>\d+)\*S\*Your payment of (?P<amount>[\d,]+) RWF to (?P<recipient>.+?) was completed at (?P<date>[\d\-: ]+)",
+        re.IGNORECASE
+    ),
+
+    # FORMAT B: Person transfer
+    re.compile(
+        r"\*165\*S\*(?P<amount>[\d,]+) RWF transferred to (?P<recipient>.+?) at (?P<date>[\d\-: ]+)",
+        re.IGNORECASE
+    ),
+]
+
 
 def parse_momo_sms(message: str, db: Session):
-    match = PATTERN.search(message)
-    if not match:
-        return {"ignored": True}
+    for pattern in PATTERNS:
+        match = pattern.search(message)
+        if not match:
+            continue
 
-    tx_id, amount, recipient, date_str = match.groups()
+        data = match.groupdict()
 
-    # Duplicate protection
-    existing = db.query(Expenses).filter(
-        Expenses.description.contains(tx_id)
-    ).first()
+        amount = float(data["amount"].replace(",", ""))
+        recipient = data["recipient"].strip()
+        date_str = data["date"].strip()
 
-    if existing:
-        return {"duplicate": True}
+        try:
+            parsed_date = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            parsed_date = None  # fallback to DB default
 
-    parsed_date = datetime.strptime(date_str.strip(), "%Y-%m-%d %H:%M:%S")
+        expense = ExpenseCreate(
+            amount=amount,
+            description=f"MoMo payment to {recipient}",
+            category="Other"
+        )
 
-    expense = ExpenseCreate(
-        amount=float(amount),
-        description=f"MoMo payment to {recipient} (TxId:{tx_id})",
-        category="Other"
-    )
+        saved = create_expense(db, expense)
 
-    saved = create_expense(db, expense)
+        return {
+            "saved": True,
+            "amount": amount,
+            "recipient": recipient,
+            "expense_id": saved.expense_id
+        }
 
-    # Optional: overwrite created_at if your model allows
-    saved.created_at = parsed_date
-    db.commit()
-
-    return {
-        "saved": True,
-        "expense_id": saved.expense_id
-    }
+    # If no pattern matched
+    return {"ignored": True}
