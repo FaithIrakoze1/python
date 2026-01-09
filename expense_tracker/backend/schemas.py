@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional
-from datetime import datetime
+import datetime
 
 
 # ========================
@@ -34,7 +34,8 @@ class CategoryOut(BaseModel):
 class ExpenseCreate(BaseModel):
     amount: float
     description: str
-    category: str   # User selects category by name
+    category: Optional[str] = None
+    date: Optional[datetime.date] = None
 
 
 # Returned to API clients (includes category_id)
@@ -43,7 +44,7 @@ class Expense(BaseModel):
     amount: float
     description: str
     category_id: int
-    created_at: datetime
+    created_at: datetime.datetime
 
     class Config:
         from_attributes = True

@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime, timedelta, date
+from fastapi import HTTPException
 import models
 import schemas
 
@@ -57,15 +58,20 @@ def delete_category(db: Session, category_id: int):
 # =========================
 
 def create_expense(db: Session, expense: schemas.ExpenseCreate):
-    # Category lookup by name
-    db_category = get_category_by_name(db, expense.category)
-    if not db_category:
-        raise ValueError("Category does not exist")
+
+    db_category = None
+
+    # Only validate category if it was provided
+    if expense.category:
+        db_category = get_category_by_name(db, expense.category)
+        if not db_category:
+            raise HTTPException(status_code=400, detail="Category does not exist")
 
     new_expense = models.Expenses(
         amount=expense.amount,
         description=expense.description,
-        category_id=db_category.category_id,
+        category_id=db_category.category_id if db_category else None,
+        created_at=expense.date or datetime.utcnow(),
     )
 
     db.add(new_expense)

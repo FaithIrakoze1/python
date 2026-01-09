@@ -22,7 +22,7 @@ class Expenses(Base):
     amount = Column(Float, index=True)
     description = Column(String, index=True)
 
-    category_id = Column(Integer, ForeignKey("categories.category_id"))
+    category_id = Column(Integer, ForeignKey("categories.category_id"), nullable=True)
     category = relationship("Categories", back_populates="expenses")
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
