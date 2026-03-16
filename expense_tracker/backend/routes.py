@@ -1,24 +1,31 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from datetime import date
 from database import get_db
 from services.sms_parser import parse_momo_sms
 from pydantic import BaseModel
+from auth import get_current_user
 import crud as crud, schemas
 
 router = APIRouter()
+
+
+def _auth(db: Session = Depends(get_db), _user: dict = Depends(get_current_user)):
+    """Dependency: require valid JWT and provide db session."""
+    return db
+
 
 # ============================================
 # CATEGORY ROUTES
 # ============================================
 
 @router.post("/categories", response_model=schemas.CategoryOut)
-def create_category(category: schemas.CategoryCreate, db: Session = Depends(get_db)):
+def create_category(category: schemas.CategoryCreate, db: Session = Depends(_auth)):
     return crud.create_category(db, category)
 
 
 @router.get("/categories", response_model=list[schemas.CategoryOut])
-def get_categories(db: Session = Depends(get_db)):
+def get_categories(db: Session = Depends(_auth)):
     return crud.get_categories(db)
 
 
@@ -27,7 +34,7 @@ def get_categories(db: Session = Depends(get_db)):
 # ============================================
 
 @router.post("/expenses", response_model=schemas.Expense)
-def create_expense(expense: schemas.ExpenseCreate, db: Session = Depends(get_db)):
+def create_expense(expense: schemas.ExpenseCreate, db: Session = Depends(_auth)):
     try:
         return crud.create_expense(db, expense)
     except ValueError as e:
@@ -39,7 +46,7 @@ def get_expenses(
     category: str | None = Query(None),
     start_date: date | None = Query(None),
     end_date: date | None = Query(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(_auth),
 ):
     return crud.get_expenses(
         db,
@@ -50,7 +57,7 @@ def get_expenses(
 
 
 @router.get("/expenses/{expense_id}", response_model=schemas.Expense)
-def get_expense(expense_id: int, db: Session = Depends(get_db)):
+def get_expense(expense_id: int, db: Session = Depends(_auth)):
     expense = crud.get_expense(db, expense_id)
     if not expense:
         raise HTTPException(status_code=404, detail="Expense not found")
@@ -58,7 +65,7 @@ def get_expense(expense_id: int, db: Session = Depends(get_db)):
 
 
 @router.delete("/expenses/{expense_id}")
-def delete_expense(expense_id: int, db: Session = Depends(get_db)):
+def delete_expense(expense_id: int, db: Session = Depends(_auth)):
     success = crud.delete_expense(db, expense_id)
     if not success:
         raise HTTPException(status_code=404, detail="Expense not found")
@@ -71,7 +78,7 @@ def delete_expense(expense_id: int, db: Session = Depends(get_db)):
 # ============================================
 
 @router.post("/budgets", response_model=schemas.BudgetOut)
-def create_budget(budget: schemas.BudgetCreate, db: Session = Depends(get_db)):
+def create_budget(budget: schemas.BudgetCreate, db: Session = Depends(_auth)):
     try:
         return crud.create_budget(db, budget)
     except ValueError as e:
@@ -79,7 +86,7 @@ def create_budget(budget: schemas.BudgetCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/budgets", response_model=list[schemas.BudgetOut])
-def get_budgets(db: Session = Depends(get_db)):
+def get_budgets(db: Session = Depends(_auth)):
     return crud.get_budgets(db)
 
 # ============================================

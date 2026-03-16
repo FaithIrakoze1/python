@@ -1,6 +1,34 @@
 const API_URL = 'http://127.0.0.1:8000/api';
 
+// Memory-only token (lost on refresh)
+let authToken = null;
+
+function captureTokenFromHash() {
+  const hash = window.location.hash;
+  if (hash.startsWith('#token=')) {
+    authToken = hash.slice(7) || null;
+    window.history.replaceState(null, '', window.location.pathname);
+  }
+}
+
+function getAuthHeaders() {
+  const headers = { 'Content-Type': 'application/json' };
+  if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+  return headers;
+}
+
+async function apiFetch(url, options = {}) {
+  const res = await fetch(url, { ...options, headers: { ...getAuthHeaders(), ...options.headers } });
+  if (res.status === 401 || res.status === 403) {
+    authToken = null;
+    window.location.href = '/login';
+    throw new Error('Unauthorized');
+  }
+  return res;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  captureTokenFromHash();
 
   // --- DOM elements ---
   const expensesListEl = document.getElementById('expensesList');
@@ -34,17 +62,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       if (id) {
-        // update
-        await fetch(`${API_URL}/expenses/${id}`, {
+        await apiFetch(`${API_URL}/expenses/${id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
       } else {
-        // create
-        await fetch(`${API_URL}/expenses`, {
+        await apiFetch(`${API_URL}/expenses`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
       }
@@ -73,7 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
         url += `?${params.toString()}`;
       }
 
-      const res = await fetch(url);
+      const res = await apiFetch(url);
       if (!res.ok) throw new Error('Failed to load expenses');
       const expenses = await res.json();
       renderExpenses(expenses);
@@ -123,7 +147,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Edit expense ---
   window.editExpense = async id => {
     try {
-      const res = await fetch(`${API_URL}/expenses/${id}`);
+      const res = await apiFetch(`${API_URL}/expenses/${id}`);
       if (!res.ok) throw new Error('Failed to load expense');
       const exp = await res.json();
 
@@ -146,7 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
   window.deleteExpense = async id => {
     if (!confirm('Are you sure you want to delete this expense?')) return;
     try {
-      const res = await fetch(`${API_URL}/expenses/${id}`, { method: 'DELETE' });
+      const res = await apiFetch(`${API_URL}/expenses/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Delete failed');
       await loadExpenses(true);
     } catch (err) {
@@ -179,8 +203,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- MoMo live sync ---
   let lastExpenseCount = 0;
   setInterval(async () => {
+    if (!authToken) return;
     try {
-      const res = await fetch(`${API_URL}/expenses`);
+      const res = await apiFetch(`${API_URL}/expenses`);
       if (!res.ok) return;
       const expenses = await res.json();
       if (expenses.length > lastExpenseCount) {

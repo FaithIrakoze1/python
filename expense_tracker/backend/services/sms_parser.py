@@ -5,13 +5,11 @@ from schemas import ExpenseCreate
 from crud import create_expense
 
 PATTERNS = [
-    # FORMAT A: Merchant payment
     re.compile(
         r"TxId:(?P<txid>\d+)\*S\*Your payment of (?P<amount>[\d,]+) RWF to (?P<recipient>.+?) was completed at (?P<date>[\d\-: ]+)",
         re.IGNORECASE
     ),
 
-    # FORMAT B: Person transfer
     re.compile(
         r"\*165\*S\*(?P<amount>[\d,]+) RWF transferred to (?P<recipient>.+?) at (?P<date>[\d\-: ]+)",
         re.IGNORECASE

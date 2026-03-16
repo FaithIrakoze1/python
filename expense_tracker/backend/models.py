@@ -4,6 +4,17 @@ from sqlalchemy.sql import func
 from database import Base
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    user_id = Column(Integer, primary_key=True, index=True)
+    google_sub = Column(String, unique=True, index=True)  # Google's stable user ID
+    email = Column(String, unique=True, index=True)
+    name = Column(String, nullable=True)
+
+    # Add user_id to expenses/budgets later when scoping per user
+
+
 class Categories(Base):
     __tablename__ = "categories"
 

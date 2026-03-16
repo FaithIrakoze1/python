@@ -7,6 +7,45 @@ import schemas
 
 
 # =========================
+# USER (AUTH)
+# =========================
+
+def get_user_by_google_sub(db: Session, google_sub: str):
+    return db.query(models.User).filter(models.User.google_sub == google_sub).first()
+
+
+def get_or_create_user_by_google_sub(
+    db: Session,
+    google_sub: str,
+    email: str,
+    name: str | None = None,
+):
+    """
+    Fetch existing user by Google 'sub' or create a new user.
+    Keeps email/name in sync when they change.
+    """
+    user = get_user_by_google_sub(db, google_sub)
+    if user:
+        updated = False
+        if email and user.email != email:
+            user.email = email
+            updated = True
+        if name is not None and user.name != name:
+            user.name = name
+            updated = True
+        if updated:
+            db.commit()
+            db.refresh(user)
+        return user
+
+    user = models.User(google_sub=google_sub, email=email, name=name)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+# =========================
 # CATEGORY
 # =========================
 
@@ -246,3 +285,4 @@ def get_weekly_summary(db: Session, year: int, week: int):
         .scalar()
 
     return {"year": year, "week": week, "total_expenses": total or 0}
+

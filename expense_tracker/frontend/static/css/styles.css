@@ -1,4 +1,23 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* Login page */
+.login-container { max-width: 480px; margin: 60px auto; }
+.login-content { display: flex; justify-content: center; align-items: center; min-height: 300px; }
+.login-card {
+  width: 100%; text-align: center; padding: 20px;
+}
+.login-card h2 { margin-bottom: 8px; color: #333; }
+.login-subtitle { color: #666; margin-bottom: 30px; }
+.login-hint { margin-top: 20px; font-size: 0.9em; color: #888; }
+.btn-google {
+  display: inline-flex; align-items: center; justify-content: center; gap: 12px;
+  background: white; color: #333; border: 2px solid #ddd; text-decoration: none;
+  padding: 14px 28px; border-radius: 8px; font-size: 1em; font-weight: 600;
+  transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.btn-google:hover {
+  background: #f8f9fa; border-color: #ccc; box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background: linear-gradient(135deg, #001f3f 0%, #003366 100%);
