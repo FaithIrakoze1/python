@@ -1,7 +1,9 @@
-from sqlalchemy.orm import Session
-from sqlalchemy import func
-from datetime import datetime, timedelta, date
+from datetime import date, datetime, timedelta
+
 from fastapi import HTTPException
+from sqlalchemy import func
+from sqlalchemy.orm import Session
+
 import models
 import schemas
 
@@ -49,28 +51,38 @@ def get_or_create_user_by_google_sub(
 # CATEGORY
 # =========================
 
-def create_category(db: Session, category: schemas.CategoryCreate):
-    new_category = models.Categories(**category.dict())
+def create_category(db: Session, user_id: int, category: schemas.CategoryCreate):
+    existing_category = get_category_by_name(db, user_id, category.name)
+    if existing_category:
+        return existing_category
+
+    new_category = models.Categories(**category.dict(), user_id=user_id)
     db.add(new_category)
     db.commit()
     db.refresh(new_category)
     return new_category
 
 
-def get_categories(db: Session):
-    return db.query(models.Categories).all()
+def get_categories(db: Session, user_id: int):
+    return db.query(models.Categories).filter(models.Categories.user_id == user_id).all()
 
 
-def get_category(db: Session, category_id: int):
-    return db.query(models.Categories).filter(models.Categories.category_id == category_id).first()
+def get_category(db: Session, user_id: int, category_id: int):
+    return db.query(models.Categories).filter(
+        models.Categories.category_id == category_id,
+        models.Categories.user_id == user_id,
+    ).first()
 
 
-def get_category_by_name(db: Session, name: str):
-    return db.query(models.Categories).filter(models.Categories.name == name).first()
+def get_category_by_name(db: Session, user_id: int, name: str):
+    return db.query(models.Categories).filter(
+        models.Categories.name == name,
+        models.Categories.user_id == user_id,
+    ).first()
 
 
-def update_category(db: Session, category_id: int, category: schemas.CategoryUpdate):
-    db_category = get_category(db, category_id)
+def update_category(db: Session, user_id: int, category_id: int, category: schemas.CategoryUpdate):
+    db_category = get_category(db, user_id, category_id)
     if not db_category:
         return None
 
@@ -82,8 +94,8 @@ def update_category(db: Session, category_id: int, category: schemas.CategoryUpd
     return db_category
 
 
-def delete_category(db: Session, category_id: int):
-    db_category = get_category(db, category_id)
+def delete_category(db: Session, user_id: int, category_id: int):
+    db_category = get_category(db, user_id, category_id)
     if not db_category:
         return None
 
@@ -96,19 +108,18 @@ def delete_category(db: Session, category_id: int):
 # EXPENSE
 # =========================
 
-def create_expense(db: Session, expense: schemas.ExpenseCreate):
-
+def create_expense(db: Session, user_id: int, expense: schemas.ExpenseCreate):
     db_category = None
 
-    # Only validate category if it was provided
     if expense.category:
-        db_category = get_category_by_name(db, expense.category)
+        db_category = get_category_by_name(db, user_id, expense.category)
         if not db_category:
             raise HTTPException(status_code=400, detail="Category does not exist")
 
     new_expense = models.Expenses(
         amount=expense.amount,
         description=expense.description,
+        user_id=user_id,
         category_id=db_category.category_id if db_category else None,
         created_at=expense.date or datetime.utcnow(),
     )
@@ -121,19 +132,19 @@ def create_expense(db: Session, expense: schemas.ExpenseCreate):
 
 def get_expenses(
     db: Session,
+    user_id: int,
     category: str | None = None,
     start_date: date | None = None,
     end_date: date | None = None,
 ):
-    query = db.query(models.Expenses)
+    query = db.query(models.Expenses).filter(models.Expenses.user_id == user_id)
 
-    # Filter by categroy name
     if category:
         query = query.join(models.Categories).filter(
-            models.Categories.name == category
+            models.Categories.name == category,
+            models.Categories.user_id == user_id,
         )
 
-    # Filter by date range
     if start_date:
         start_dt = datetime.combine(start_date, datetime.min.time())
         query = query.filter(models.Expenses.created_at >= start_dt)
@@ -145,26 +156,27 @@ def get_expenses(
     return query.order_by(models.Expenses.created_at.desc()).all()
 
 
-def get_expense(db: Session, expense_id: int):
-    return db.query(models.Expenses).filter(models.Expenses.expense_id == expense_id).first()
+def get_expense(db: Session, user_id: int, expense_id: int):
+    return db.query(models.Expenses).filter(
+        models.Expenses.expense_id == expense_id,
+        models.Expenses.user_id == user_id,
+    ).first()
 
 
-def update_expense(db: Session, expense_id: int, expense: schemas.ExpenseUpdate):
-    db_expense = get_expense(db, expense_id)
+def update_expense(db: Session, user_id: int, expense_id: int, expense: schemas.ExpenseUpdate):
+    db_expense = get_expense(db, user_id, expense_id)
     if not db_expense:
         return None
 
     update_data = expense.dict(exclude_unset=True)
 
-    # If category name was given, convert to category_id
     if "category" in update_data:
-        db_category = get_category_by_name(db, update_data["category"])
+        db_category = get_category_by_name(db, user_id, update_data["category"])
         if not db_category:
             raise ValueError("Category does not exist")
         db_expense.category_id = db_category.category_id
         del update_data["category"]
 
-    # Update other fields
     for key, value in update_data.items():
         setattr(db_expense, key, value)
 
@@ -173,8 +185,8 @@ def update_expense(db: Session, expense_id: int, expense: schemas.ExpenseUpdate)
     return db_expense
 
 
-def delete_expense(db: Session, expense_id: int):
-    db_expense = get_expense(db, expense_id)
+def delete_expense(db: Session, user_id: int, expense_id: int):
+    db_expense = get_expense(db, user_id, expense_id)
     if not db_expense:
         return None
 
@@ -187,9 +199,8 @@ def delete_expense(db: Session, expense_id: int):
 # BUDGET
 # =========================
 
-def create_budget(db: Session, budget: schemas.BudgetCreate):
-    # Convert category name → category_id
-    db_category = get_category_by_name(db, budget.category)
+def create_budget(db: Session, user_id: int, budget: schemas.BudgetCreate):
+    db_category = get_category_by_name(db, user_id, budget.category)
     if not db_category:
         raise ValueError("Category does not exist")
 
@@ -197,7 +208,8 @@ def create_budget(db: Session, budget: schemas.BudgetCreate):
         amount=budget.amount,
         month=budget.month,
         year=budget.year,
-        category_id=db_category.category_id
+        user_id=user_id,
+        category_id=db_category.category_id,
     )
 
     db.add(new_budget)
@@ -206,24 +218,26 @@ def create_budget(db: Session, budget: schemas.BudgetCreate):
     return new_budget
 
 
-def get_budgets(db: Session):
-    return db.query(models.Budgets).all()
+def get_budgets(db: Session, user_id: int):
+    return db.query(models.Budgets).filter(models.Budgets.user_id == user_id).all()
 
 
-def get_budget(db: Session, budget_id: int):
-    return db.query(models.Budgets).filter(models.Budgets.budget_id == budget_id).first()
+def get_budget(db: Session, user_id: int, budget_id: int):
+    return db.query(models.Budgets).filter(
+        models.Budgets.budget_id == budget_id,
+        models.Budgets.user_id == user_id,
+    ).first()
 
 
-def update_budget(db: Session, budget_id: int, budget: schemas.BudgetUpdate):
-    db_budget = get_budget(db, budget_id)
+def update_budget(db: Session, user_id: int, budget_id: int, budget: schemas.BudgetUpdate):
+    db_budget = get_budget(db, user_id, budget_id)
     if not db_budget:
         return None
 
     update_data = budget.dict(exclude_unset=True)
 
-    # If category name is updated
     if "category" in update_data:
-        db_category = get_category_by_name(db, update_data["category"])
+        db_category = get_category_by_name(db, user_id, update_data["category"])
         if not db_category:
             raise ValueError("Category does not exist")
         db_budget.category_id = db_category.category_id
@@ -237,8 +251,8 @@ def update_budget(db: Session, budget_id: int, budget: schemas.BudgetUpdate):
     return db_budget
 
 
-def delete_budget(db: Session, budget_id: int):
-    db_budget = get_budget(db, budget_id)
+def delete_budget(db: Session, user_id: int, budget_id: int):
+    db_budget = get_budget(db, user_id, budget_id)
     if not db_budget:
         return None
 
@@ -251,38 +265,46 @@ def delete_budget(db: Session, budget_id: int):
 # SUMMARY
 # =========================
 
-def get_monthly_summary(db: Session, year: int, month: int):
+def get_monthly_summary(db: Session, user_id: int, year: int, month: int):
     start = datetime(year, month, 1)
     end = datetime(year + (month // 12), (month % 12) + 1, 1)
 
-    total = db.query(func.sum(models.Expenses.amount))\
-        .filter(models.Expenses.created_at >= start,
-                models.Expenses.created_at < end)\
+    total = db.query(func.sum(models.Expenses.amount)) \
+        .filter(
+            models.Expenses.user_id == user_id,
+            models.Expenses.created_at >= start,
+            models.Expenses.created_at < end,
+        ) \
         .scalar()
 
     return {"year": year, "month": month, "total_expenses": total or 0}
 
 
-def get_yearly_summary(db: Session, year: int):
+def get_yearly_summary(db: Session, user_id: int, year: int):
     start = datetime(year, 1, 1)
     end = datetime(year + 1, 1, 1)
 
-    total = db.query(func.sum(models.Expenses.amount))\
-        .filter(models.Expenses.created_at >= start,
-                models.Expenses.created_at < end)\
+    total = db.query(func.sum(models.Expenses.amount)) \
+        .filter(
+            models.Expenses.user_id == user_id,
+            models.Expenses.created_at >= start,
+            models.Expenses.created_at < end,
+        ) \
         .scalar()
 
     return {"year": year, "total_expenses": total or 0}
 
 
-def get_weekly_summary(db: Session, year: int, week: int):
+def get_weekly_summary(db: Session, user_id: int, year: int, week: int):
     start = datetime.strptime(f"{year}-W{week}-1", "%Y-W%W-%w")
     end = start + timedelta(days=7)
 
-    total = db.query(func.sum(models.Expenses.amount))\
-        .filter(models.Expenses.created_at >= start,
-                models.Expenses.created_at < end)\
+    total = db.query(func.sum(models.Expenses.amount)) \
+        .filter(
+            models.Expenses.user_id == user_id,
+            models.Expenses.created_at >= start,
+            models.Expenses.created_at < end,
+        ) \
         .scalar()
 
     return {"year": year, "week": week, "total_expenses": total or 0}
-

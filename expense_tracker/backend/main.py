@@ -1,15 +1,16 @@
-from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from pathlib import Path
 
-from routes import router
+from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+
 from auth_routes import router as auth_router
-from database import Base, engine
+from database import init_db
+from routes import router
 
 app = FastAPI(title="Expense Tracker")
 
-Base.metadata.create_all(bind=engine)
+init_db()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = BASE_DIR / "frontend"
@@ -17,8 +18,9 @@ FRONTEND_DIR = BASE_DIR / "frontend"
 app.mount(
     "/static",
     StaticFiles(directory=FRONTEND_DIR / "static"),
-    name="static"
+    name="static",
 )
+
 
 @app.get("/")
 def serve_frontend():

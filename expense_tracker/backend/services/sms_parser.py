@@ -1,23 +1,24 @@
 import re
 from datetime import datetime
+
 from sqlalchemy.orm import Session
-from schemas import ExpenseCreate
+
 from crud import create_expense
+from schemas import ExpenseCreate
 
 PATTERNS = [
     re.compile(
         r"TxId:(?P<txid>\d+)\*S\*Your payment of (?P<amount>[\d,]+) RWF to (?P<recipient>.+?) was completed at (?P<date>[\d\-: ]+)",
-        re.IGNORECASE
+        re.IGNORECASE,
     ),
-
     re.compile(
         r"\*165\*S\*(?P<amount>[\d,]+) RWF transferred to (?P<recipient>.+?) at (?P<date>[\d\-: ]+)",
-        re.IGNORECASE
+        re.IGNORECASE,
     ),
 ]
 
 
-def parse_momo_sms(message: str, db: Session):
+def parse_momo_sms(message: str, db: Session, user_id: int):
     for pattern in PATTERNS:
         match = pattern.search(message)
         if not match:
@@ -32,22 +33,22 @@ def parse_momo_sms(message: str, db: Session):
         try:
             parsed_date = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
         except ValueError:
-            parsed_date = None  # fallback to DB default
+            parsed_date = None
 
         expense = ExpenseCreate(
             amount=amount,
             description=f"MoMo payment to {recipient}",
-            category="Other"
+            category="Other",
+            date=parsed_date.date() if parsed_date else None,
         )
 
-        saved = create_expense(db, expense)
+        saved = create_expense(db, user_id, expense)
 
         return {
             "saved": True,
             "amount": amount,
             "recipient": recipient,
-            "expense_id": saved.expense_id
+            "expense_id": saved.expense_id,
         }
 
-    # If no pattern matched
     return {"ignored": True}
